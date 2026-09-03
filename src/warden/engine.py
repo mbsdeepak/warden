@@ -8,11 +8,16 @@ most-restrictive-wins (block > flag > allow) across layers.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from warden.matchers import match_command, match_domain, match_path
 from warden.policy import MatchSpec, Policy, StaticRule
 from warden.schema import SEVERITY, Action, Decision, ToolCallEvent
+
+if TYPE_CHECKING:
+    from warden.overrides import Override
 
 
 @dataclass(frozen=True)
@@ -104,13 +109,32 @@ class Engine:
     by the caller (the adapter owns session state per D8); with none given,
     this is a pure per-call firewall."""
 
-    def __init__(self, policy: Policy) -> None:
+    def __init__(self, policy: Policy, overrides: Sequence[Override] = ()) -> None:
         self.policy = policy
+        self.overrides = list(overrides)
+
+    def _override_verdict(self, event: ToolCallEvent) -> Verdict | None:
+        """Minted exceptions are evaluated before the main rule list (D6:
+        under first-match-wins, position is priority) and match the exact
+        tool + exact argument values, nothing wider."""
+        for override in self.overrides:
+            if override.tool == event.tool and override.args == event.args:
+                return Verdict(
+                    action="allow",
+                    rule=f"override.{override.id}",
+                    reason=(
+                        f"exact-match exception minted from flag {override.minted_from}:"
+                        f" {override.reason}"
+                    ),
+                    layer="static",
+                    explicit=True,
+                )
+        return None
 
     def decide(
         self, event: ToolCallEvent, session_verdicts: list[Verdict] | None = None
     ) -> Decision:
-        verdicts = [evaluate_static(event, self.policy)]
+        verdicts = [self._override_verdict(event) or evaluate_static(event, self.policy)]
         if session_verdicts:
             verdicts.extend(session_verdicts)
         winner = combine(verdicts)

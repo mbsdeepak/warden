@@ -55,6 +55,17 @@ class SessionState(BaseModel):
     quarantine: QuarantineInfo | None = None
 
 
+def release_quarantine(state: SessionState) -> None:
+    """Human adjudication of a quarantined session. Clears the quarantine AND
+    the recent-call window: the blocks that tripped it have been reviewed, and
+    leaving them in the window would re-quarantine the session on its very
+    next call, making release a one-call illusion. Taint labels survive:
+    releasing a quarantine is not a declassification of what the session read.
+    """
+    state.quarantine = None
+    state.window = []
+
+
 def _max_window(policy: Policy) -> int:
     return max((seq.when.within_calls for seq in policy.sequences), default=0)
 

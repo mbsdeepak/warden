@@ -337,6 +337,11 @@ Quarantine semantics: sticky (no window decay), and every subsequent call in
 the session is escalated to at least flag (allow becomes flag; flag and block
 are unchanged), with the reason naming the escalating rule and the calls that
 tripped it. Only a human releases a quarantined session, via the review CLI.
+Release also clears the session's recent-call window: the blocks that tripped
+the quarantine have been human-adjudicated, and leaving them in the window
+would re-quarantine the session on its very next call, making release a
+one-call illusion. Taint labels survive release: lifting a quarantine is not
+a declassification of what the session read [D12].
 Quarantine and taint labels are the same mechanism: session state set by
 rules, consumed by label-conditioned effects (sinks, quarantine downgrade).
 
@@ -585,3 +590,10 @@ the session layer.
   and sink bugs and D7's shadowed probing flag). Caught in design review.
   Consequence: an `fs-write-workspace` allow rule, and the validator's
   reachability lint generalized from taint sources to sequence-pattern steps.
+- **D12 (locked)** `release` clears the quarantine AND the recent-call
+  window, but never taint labels. Why: caught by the release lifecycle test,
+  the historical blocks still in the window re-quarantined the session on its
+  next call, so release was a one-call illusion. The window is cleared
+  because that history is exactly what the human adjudicated; labels survive
+  because releasing a quarantine says "this session may continue," not "what
+  it read is no longer sensitive."

@@ -6,12 +6,14 @@ difference between them is which store the cache wraps.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from typing import Any, TextIO
 
 from pydantic import ValidationError
 
 from warden import session
 from warden.engine import Engine
+from warden.overrides import Override
 from warden.policy import Policy
 from warden.schema import Decision, ToolCallEvent
 from warden.store import SessionCache, StateStore
@@ -69,9 +71,11 @@ class StreamProcessor:
         store: StateStore,
         max_sessions: int = 1024,
         audit: TextIO | None = None,
+        overrides: Sequence[Override] = (),
     ) -> None:
         self._policy = policy
-        self._engine = Engine(policy)
+        self._store = store
+        self._engine = Engine(policy, overrides)
         self._cache = SessionCache(store, max_sessions)
         self._audit = audit
 
@@ -92,6 +96,10 @@ class StreamProcessor:
             verdicts = session.evaluate(self._policy, state, parsed)
             decision = self._engine.decide(parsed, verdicts)
             session.update(self._policy, state, decision, parsed)
+            if decision.decision == "flag" and decision.flag_source == "rule":
+                # Only rule-source flags enter the per-call queue (D10);
+                # quarantine flags are reviewed at session granularity.
+                self._store.enqueue_flag(parsed, decision)
         if self._audit is not None:
             self._audit.write(decision.to_json() + "\n")
         return decision
