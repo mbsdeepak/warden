@@ -1,0 +1,85 @@
+# warden example policy. See DESIGN.md sections 5-6 for semantics.
+version: 1
+default_action: block        # anything no rule allows is blocked
+
+rules:                       # static, per-call; first match wins [D1]
+  - id: fs-read-workspace
+    tool: fs.read
+    match: {path: ["./workspace/**", "./data/**"]}
+    action: allow
+
+  - id: fs-list-workspace         # agents list directories constantly; without
+    tool: fs.list                 # this, clean-workflow would default-block
+    match: {path: ["./workspace/**", "./data/**"]}
+    action: allow
+
+  - id: fs-write-workspace        # writes must be allowable or the
+    tool: fs.write                # write-then-execute rule can never arm
+    match: {path: ["./workspace/**"]}   # (blocked writes wrote nothing, D11)
+    action: allow
+
+  - id: fs-read-secrets
+    tool: fs.read
+    match: {path: ["~/.ssh/**", "**/.env", "**/credentials*"]}
+    action: block
+    reason: "secret material is never readable"
+
+  - id: http-known-apis
+    tool: [http.get, http.post]     # a rule takes one tool or a list
+    match: {domain: ["api.github.com", "*.example.com"]}
+    action: allow
+
+  - id: shell-destructive         # ordered before the safe list so no allow
+    tool: shell.exec              # glob can ever shadow it (first match wins)
+    match: {command: ["rm -rf *", "rm -r *", "mkfs*", "dd *"]}
+    action: block
+    reason: "destructive command is a direct violation, not a review item"
+
+  - id: shell-safe-list
+    tool: shell.exec
+    match: {command: ["ls *", "grep *", "python ./workspace/**"]}
+    action: allow
+
+  - id: shell-anything-else
+    tool: shell.exec
+    action: flag             # shell is powerful: unknown commands go to a human
+    reason: "shell command outside the safe list needs review"
+
+taint:
+  sources:
+    - id: pii-read
+      tool: fs.read
+      match: {path: ["./data/pii/**", "./data/customers/**"]}
+      label: pii            # readable (fs-read-workspace allows ./data/**),
+                            # but the contents must not leave the machine
+  sinks:                  # one severity per sink tool [D9]
+    - id: exfil-post
+      tool: http.post
+      when_label: pii
+      action: block
+      reason: "outbound POST after reading PII in this session"
+    - id: exfil-get
+      tool: http.get
+      when_label: pii
+      action: flag
+      reason: "GET after reading PII: query strings can carry data; a human decides"
+    - id: exfil-shell
+      tool: shell.exec
+      when_label: pii
+      action: flag
+      reason: "shell after reading PII: local processing or exfil; a human decides"
+
+sequences:
+  - id: probing
+    when: {min_blocked: 3, within_calls: 10}
+    escalate: quarantine
+    reason: "3+ blocked calls in a 10-call window looks like policy probing"
+
+  - id: write-then-execute
+    when:
+      pattern:
+        - {tool: fs.write, capture: path}
+        - {tool: shell.exec, args_reference: path}
+      within_calls: 15
+    action: block
+    reason: "executing a file this session just wrote"

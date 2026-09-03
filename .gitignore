@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.db
+overrides.yaml
+email-draft.txt
+SESSION_CONTEXT.md
