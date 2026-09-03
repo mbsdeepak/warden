@@ -1,0 +1,5 @@
+{"id": "c-1", "session_id": "s-clean", "tool": "fs.list", "args": {"path": "./workspace"}}
+{"id": "c-2", "session_id": "s-clean", "tool": "fs.read", "args": {"path": "./workspace/notes.txt"}}
+{"id": "c-3", "session_id": "s-clean", "tool": "http.get", "args": {"url": "https://api.example.com/data"}}
+{"id": "c-4", "session_id": "s-clean", "tool": "fs.write", "args": {"path": "./workspace/out/report.md"}}
+{"id": "c-5", "session_id": "s-clean", "tool": "shell.exec", "args": {"command": "grep total ./workspace/out/report.md"}}

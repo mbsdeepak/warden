@@ -1,0 +1,6 @@
+this is not json {{{
+[1, 2, 3]
+{"id": "m-1", "session_id": "s-mal", "args": {}}
+{"id": "m-2", "session_id": "s-mal", "tool": 123, "args": {}}
+{"id": "m-3", "session_id": "s-mal", "tool": "fs.read"}
+{"id": "m-4", "session_id": "s-mal", "tool": "fs.read", "args": {"path": "./workspace/a.txt"}}

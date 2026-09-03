@@ -1,0 +1,2 @@
+{"id": "p-1", "session_id": "s-pii", "tool": "fs.read", "args": {"path": "./data/pii/customers.csv"}}
+{"id": "p-2", "session_id": "s-pii", "tool": "shell.exec", "args": {"command": "python ./workspace/analyze.py"}}

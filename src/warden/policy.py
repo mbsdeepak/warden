@@ -103,6 +103,16 @@ class SequenceWhen(BaseModel):
     def exactly_one_trigger(self) -> SequenceWhen:
         if (self.min_blocked is None) == (self.pattern is None):
             raise ValueError("sequence `when` needs exactly one of min_blocked / pattern")
+        if self.pattern is not None:
+            # This version supports two-step capture/reference patterns
+            # (write-then-execute shaped); refuse anything else loudly rather
+            # than half-honoring it (documented limitation).
+            if len(self.pattern) != 2:
+                raise ValueError("sequence patterns must have exactly two steps")
+            if self.pattern[0].capture != "path" or self.pattern[1].args_reference != "path":
+                raise ValueError(
+                    "step 1 must set `capture: path`; step 2 must set `args_reference: path`"
+                )
         return self
 
 

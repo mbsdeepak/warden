@@ -10,3 +10,4 @@ dist/
 overrides.yaml
 email-draft.txt
 SESSION_CONTEXT.md
+.warden/

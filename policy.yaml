@@ -79,7 +79,10 @@ sequences:
     when:
       pattern:
         - {tool: fs.write, capture: path}
-        - {tool: shell.exec, args_reference: path}
+        - tool: shell.exec              # narrowed to interpreter invocations:
+          match:                        # grepping a just-written file is not
+            command: ["python *", "python3 *", "bash *", "sh *", "node *"]
+          args_reference: path          # executing it
       within_calls: 15
     action: block
     reason: "executing a file this session just wrote"

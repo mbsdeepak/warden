@@ -294,12 +294,23 @@ sequences:
     reason: "3+ blocked calls in a 10-call window looks like policy probing"
 
   - id: write-then-execute
-    when: {pattern: [{tool: fs.write, capture: path},
-                     {tool: shell.exec, args_reference: path}],
-           within_calls: 15}
+    when:
+      pattern:
+        - {tool: fs.write, capture: path}
+        - tool: shell.exec
+          match: {command: ["python *", "python3 *", "bash *", "sh *", "node *"]}
+          args_reference: path
+      within_calls: 15
     action: block
     reason: "executing a file this session just wrote"
 ```
+
+Step 2 carries its own `match`, narrowing it to interpreter invocations:
+referencing a just-written file is not executing it, and without the
+narrowing, `fs.write report.md` followed by `grep total report.md` would
+block a legitimate workflow. Direct `./script` execution is not in the
+interpreter list; it falls to the shell catch-all (`flag`), which is the
+fail-closed outcome, not a hole.
 
 `args_reference` compares *canonicalized path tokens* extracted from the shell
 command against the captured path, never a raw substring. Otherwise

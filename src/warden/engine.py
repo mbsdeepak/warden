@@ -24,6 +24,7 @@ class Verdict:
     reason: str
     layer: str  # "static" | "session"
     explicit: bool  # False only for the default action
+    source: str = "rule"  # "rule" | "quarantine" (D10: quarantine downgrades)
 
 
 def _spec_matches(spec: MatchSpec, event: ToolCallEvent, home: str | None) -> bool:
@@ -88,7 +89,13 @@ def combine(verdicts: list[Verdict]) -> Verdict:
         raise ValueError("combine() needs at least one verdict")
     top = max(SEVERITY[v.action] for v in verdicts)
     winners = [v for v in verdicts if SEVERITY[v.action] == top]
-    winners.sort(key=lambda v: (v.explicit, v.layer == "session"), reverse=True)
+    # explicit > default; a rule's reason > the quarantine downgrade's
+    # (a call flagged on its own merits stays legible as such, D10);
+    # session > static (richer context, e.g. the tainting call).
+    winners.sort(
+        key=lambda v: (v.explicit, v.source != "quarantine", v.layer == "session"),
+        reverse=True,
+    )
     return winners[0]
 
 
@@ -107,6 +114,14 @@ class Engine:
         if session_verdicts:
             verdicts.extend(session_verdicts)
         winner = combine(verdicts)
+        flag_source: str | None = None
+        if winner.action == "flag":
+            # `quarantine` marks flags that exist solely because of the
+            # session downgrade; any rule-flag keeps the call enqueueable (D10).
+            has_rule_flag = any(
+                v.action == "flag" and v.source == "rule" for v in verdicts
+            )
+            flag_source = "rule" if has_rule_flag else "quarantine"
         return Decision(
             id=event.id,
             session_id=event.session_id,
@@ -114,5 +129,5 @@ class Engine:
             rule=winner.rule,
             matched_rules=[v.rule for v in verdicts],
             reason=winner.reason,
-            flag_source="rule" if winner.action == "flag" else None,
+            flag_source=flag_source,
         )

@@ -1,0 +1,3 @@
+{"id": "w-1", "session_id": "s-wte", "tool": "fs.write", "args": {"path": "./workspace/helper.py"}}
+{"id": "w-2", "session_id": "s-wte", "tool": "fs.read", "args": {"path": "./workspace/helper.py"}}
+{"id": "w-3", "session_id": "s-wte", "tool": "shell.exec", "args": {"command": "python ./workspace/helper.py"}}
