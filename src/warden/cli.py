@@ -9,6 +9,7 @@ never to allow. Exit codes: 0 all allowed, 1 at least one block,
 
 from __future__ import annotations
 
+import io
 import json
 import sys
 from pathlib import Path
@@ -85,7 +86,17 @@ def _run(
 
     try:
         if input_file == "-":
-            consume(sys.stdin)
+            # Python's default stdin decoder is strict, so raw non-UTF-8 bytes
+            # on a pipe would raise before the line ever reached _parse. Decode
+            # with replacement, as the file branch does, so garbage bytes become
+            # a malformed-line block instead of a crash (fail closed, Section 8).
+            buffer = getattr(sys.stdin, "buffer", None)
+            stdin: TextIO = (
+                io.TextIOWrapper(buffer, encoding="utf-8", errors="replace")
+                if buffer is not None
+                else sys.stdin
+            )
+            consume(stdin)
         else:
             with open(input_file, encoding="utf-8", errors="replace") as fh:
                 consume(fh)

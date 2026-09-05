@@ -106,6 +106,30 @@ def test_empty_file_is_clean(tmp_path: Path) -> None:
     assert decisions == []
 
 
+def test_non_utf8_bytes_on_stdin_block_without_crash(tmp_path: Path) -> None:
+    # The file branch already decodes with errors="replace"; stdin must match.
+    # Raw binary on a pipe used to raise UnicodeDecodeError before _parse ran.
+    garbage = b"\xc8\xff\xfe not utf-8 \x00\x9f\n"
+    valid = _event("c-2", "fs.read", path="./workspace/a.txt").encode() + b"\n"
+    result = runner.invoke(
+        app,
+        ["check", "-", "--policy", POLICY, "--store", str(tmp_path / "s.db")],
+        input=garbage + valid,
+    )
+    # CliRunner records a normal non-zero exit as SystemExit; anything else
+    # (UnicodeDecodeError before the fix) is a crash. Exit code alone cannot
+    # tell them apart, since the runner also reports 1 for an uncaught exception.
+    assert result.exception is None or isinstance(result.exception, SystemExit), repr(
+        result.exception
+    )
+    assert result.exit_code == 1  # the garbage line is a block
+    decisions = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+    assert len(decisions) == 2
+    assert decisions[0]["rule"] == "malformed"
+    assert "line 1" in decisions[0]["reason"]
+    assert decisions[1]["decision"] == "allow"  # stream survived
+
+
 def test_bad_policy_exits_three(tmp_path: Path) -> None:
     bad = tmp_path / "bad.yaml"
     bad.write_text("version: 1\ndefault_action: permit\n")
