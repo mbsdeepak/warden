@@ -34,8 +34,9 @@ class MatchSpec(BaseModel):
 
     @model_validator(mode="after")
     def at_least_one(self) -> MatchSpec:
-        if self.path is None and self.domain is None and self.command is None:
-            raise ValueError("match spec must name at least one of path/domain/command")
+        fields = list(type(self).model_fields)
+        if all(getattr(self, f) is None for f in fields):
+            raise ValueError(f"match spec must name at least one of {'/'.join(fields)}")
         return self
 
 

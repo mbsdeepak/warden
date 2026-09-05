@@ -83,3 +83,16 @@ def test_replay_is_deterministic_and_isolated() -> None:
     first = replay("probing")
     second = replay("probing")
     assert first == second
+
+
+def test_shell_chaining_allow_is_conjunctive_restriction_disjunctive() -> None:
+    # Legitimate chaining (ls && grep) stays allowed; an exfil chain riding an
+    # `ls` allow falls to the catch-all; a destructive second half blocks; a
+    # chained execute of a just-written file still trips write-then-execute.
+    code, decisions = replay("shell-chaining")
+    assert code == 1
+    expected = ["allow", "allow", "allow", "flag", "block", "block"]
+    assert [d["decision"] for d in decisions] == expected
+    assert decisions[3]["rule"] == "static.shell-anything-else"
+    assert decisions[4]["rule"] == "static.shell-destructive"
+    assert decisions[5]["rule"] == "seq.write-then-execute"

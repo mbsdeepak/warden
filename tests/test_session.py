@@ -240,3 +240,32 @@ def test_attributable_garbage_quarantines_but_unparseable_does_not() -> None:
         assert d is not None and d.session_id is None
     ok = fresh.process_line(lines[3], 4)
     assert ok is not None and ok.decision == "allow"  # nothing attributable: no quarantine
+
+
+# --- compound shell commands cannot hide the executing segment ------------------
+
+
+def test_chained_execute_after_write_is_blocked() -> None:
+    # Static policy allows both halves (`ls *`, `python ./workspace/**`); the
+    # sequence step matches its `python *` pattern on the second segment.
+    decisions = run_events(
+        POLICY,
+        [
+            ev("fs.write", "c-1", path="./workspace/helper.py"),
+            ev("shell.exec", "c-2", command="ls . ; python ./workspace/helper.py"),
+        ],
+    )
+    assert decisions[1].decision == "block"
+    assert decisions[1].rule == "seq.write-then-execute"
+
+
+def test_glued_operator_does_not_hide_the_executed_path() -> None:
+    decisions = run_events(
+        POLICY,
+        [
+            ev("fs.write", "c-1", path="./workspace/helper.py"),
+            ev("shell.exec", "c-2", command="python ./workspace/helper.py;ls"),
+        ],
+    )
+    assert decisions[1].decision == "block"
+    assert decisions[1].rule == "seq.write-then-execute"

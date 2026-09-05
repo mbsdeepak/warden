@@ -110,7 +110,11 @@ def evaluate(policy: Policy, state: SessionState, event: ToolCallEvent) -> list[
         step2 = seq.when.pattern[1]
         if event.tool != step2.tool:
             continue
-        if step2.match is not None and not _spec_matches(step2.match, event, policy.home):
+        # Sequence steps are restriction, never permission: any segment of a
+        # compound shell command that matches is enough (`ls . ; python x.py`).
+        if step2.match is not None and not _spec_matches(
+            step2.match, event, policy.home, restrictive=True
+        ):
             continue
         referenced = _referenced_paths(event, policy.home)
         horizon = state.counter - seq.when.within_calls + 1
@@ -156,7 +160,9 @@ def _arm_captures(
     step1 = seq.when.pattern[0]
     if event.tool != step1.tool:
         return
-    if step1.match is not None and not _spec_matches(step1.match, event, policy.home):
+    if step1.match is not None and not _spec_matches(
+        step1.match, event, policy.home, restrictive=True
+    ):
         return
     path = event.args.get("path")
     if not isinstance(path, str):
@@ -195,7 +201,7 @@ def update(
             if (
                 source.label not in state.labels
                 and event.tool == source.tool
-                and _spec_matches(source.match, event, policy.home)
+                and _spec_matches(source.match, event, policy.home, restrictive=True)
             ):
                 path = event.args.get("path")
                 detail = (

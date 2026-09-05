@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from warden.matchers import match_command, match_domain, match_path
 from warden.policy import MatchSpec, Policy, StaticRule
@@ -32,23 +32,67 @@ class Verdict:
     source: str = "rule"  # "rule" | "quarantine" (D10: quarantine downgrades)
 
 
-def _spec_matches(spec: MatchSpec, event: ToolCallEvent, home: str | None) -> bool:
+class ArgMatcher(Protocol):
+    def __call__(
+        self, value: str, patterns: list[str], home: str | None, restrictive: bool
+    ) -> bool: ...
+
+
+def _match_path_arg(value: str, patterns: list[str], home: str | None, restrictive: bool) -> bool:
+    return match_path(value, patterns, home)
+
+
+def _match_domain_arg(
+    value: str, patterns: list[str], home: str | None, restrictive: bool
+) -> bool:
+    return match_domain(value, patterns)
+
+
+def _match_command_arg(
+    value: str, patterns: list[str], home: str | None, restrictive: bool
+) -> bool:
+    return match_command(value, patterns, home, restrictive=restrictive)
+
+
+@dataclass(frozen=True)
+class ArgType:
+    """How one MatchSpec field is evaluated: which event arg it reads, and the
+    matcher that compares that arg to the field's patterns."""
+
+    arg: str
+    match: ArgMatcher
+
+
+# Registry: MatchSpec field -> argument type. Adding an argument type (say
+# `sql` for a db.query tool) is a field on MatchSpec, a matcher function, and
+# one entry here; nothing else in the engine or session layer changes.
+# test_engine asserts the registry covers every MatchSpec field.
+ARG_TYPES: dict[str, ArgType] = {
+    "path": ArgType("path", _match_path_arg),
+    "domain": ArgType("url", _match_domain_arg),
+    "command": ArgType("command", _match_command_arg),
+}
+
+
+def _spec_matches(
+    spec: MatchSpec, event: ToolCallEvent, home: str | None, *, restrictive: bool = False
+) -> bool:
     """Every present field must match its conventional arg. A present field
     whose arg is missing or not a string is a non-match: an fs.read with no
     path can never satisfy a path rule, so it falls through to the default
     action (fail closed) rather than being waved past a matcher it dodged.
+
+    `restrictive` says what the match is for. An allow rule is permission,
+    which must cover the whole argument; a block/flag rule or a sequence step
+    is restriction, which fires on any part. Only compound argument types
+    (today: shell commands, split into segments) distinguish the two.
     """
-    if spec.path is not None:
-        arg = event.args.get("path")
-        if not isinstance(arg, str) or not match_path(arg, spec.path, home):
-            return False
-    if spec.domain is not None:
-        arg = event.args.get("url")
-        if not isinstance(arg, str) or not match_domain(arg, spec.domain):
-            return False
-    if spec.command is not None:
-        arg = event.args.get("command")
-        if not isinstance(arg, str) or not match_command(arg, spec.command, home):
+    for field, arg_type in ARG_TYPES.items():
+        patterns = getattr(spec, field)
+        if patterns is None:
+            continue
+        arg = event.args.get(arg_type.arg)
+        if not isinstance(arg, str) or not arg_type.match(arg, patterns, home, restrictive):
             return False
     return True
 
@@ -58,7 +102,7 @@ def rule_matches(rule: StaticRule, event: ToolCallEvent, home: str | None) -> bo
         return False
     if rule.match is None:
         return True
-    return _spec_matches(rule.match, event, home)
+    return _spec_matches(rule.match, event, home, restrictive=rule.action != "allow")
 
 
 def evaluate_static(event: ToolCallEvent, policy: Policy) -> Verdict:
