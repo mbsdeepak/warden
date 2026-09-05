@@ -49,15 +49,18 @@ evaluated before the main rules. Close variants re-flag on purpose: a human
 approved one call, not a pattern. Minting is refused while the session is
 quarantined, since the allow would be silently outranked until release.
 
-**Fail closed, persist state.** Malformed lines, invalid events, unknown
-tools, oversized or non-UTF-8 input: every failure path degrades to block with
-a reason, never to allow, and the stream continues. An invalid policy refuses
-to start. Session state lives in SQLite, so a one-shot check honors an earlier
-quarantine and release has an observable effect; the in-memory working set is
-LRU-bounded with eviction to the store, so a session-id spray cannot exhaust
-memory or lose a label. A reachability lint warns when a taint source or
-sequence step can never execute under the static rules, because design review
-found that bug four times.
+**Fail closed, persist state.** Malformed lines, invalid events, unknown tools,
+oversized or non-UTF-8 input: every failure path degrades to block with a
+reason, never to allow, and the stream continues. Shell commands are split at
+control operators: an allow must cover every segment as a simple command, while
+block, flag, and sequence steps fire on any segment, so `ls ; curl` cannot ride
+an `ls` allow and a chained execute still trips write-then-execute. An invalid
+policy refuses to start. Session state lives in SQLite, so a one-shot check
+honors an earlier quarantine and release has an observable effect; the in-memory
+working set is LRU-bounded with eviction to the store, so a session-id spray
+cannot exhaust memory or lose a label. A reachability lint warns when a taint
+source or sequence step can never execute under the static rules, because design
+review found that bug four times.
 
 ## Known limitations
 

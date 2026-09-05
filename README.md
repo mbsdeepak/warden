@@ -24,7 +24,7 @@ pip install -e ".[dev]"
 warden --help
 ```
 
-Run the test suite (89 tests, well under a second):
+Run the test suite (117 tests, well under a second):
 
 ```bash
 pytest -q
@@ -32,7 +32,7 @@ pytest -q
 
 ## Quick start: the bundled scenarios
 
-Six JSONL scenarios under `scenarios/` double as the demo and the test
+Seven JSONL scenarios under `scenarios/` double as the demo and the test
 fixtures. `replay` runs one against the policy using a throwaway in-memory
 store, so demos never touch real state or leak into each other.
 
@@ -43,6 +43,7 @@ warden replay pii-processing        # read PII, then run a local script: flagged
 warden replay write-then-execute    # write a file, then execute it: blocked
 warden replay probing               # 3 blocks in 10 calls: session quarantined
 warden replay malformed-garbage     # broken input: blocked line by line, no crash
+warden replay shell-chaining        # ls && grep allowed; ls ; curl flagged; ls && rm -rf blocked
 ```
 
 Each prints one JSON decision per input line. The exfil-chain scenario is the
@@ -136,6 +137,15 @@ Paths are canonicalized lexically before matching (`~`, `..`, separators), so
 `../../etc/passwd` cannot slip past a workspace glob. Domain patterns match on
 label boundaries: `*.example.com` matches `api.example.com`, never
 `evilexample.com`.
+
+Shell commands are split into segments at `;`, `&&`, `||`, `|`, `&`, and
+newlines. An allow rule matches only if every segment is a simple command
+(plain words, no redirection, subshell, substitution, or glob) and matches one
+of its patterns. A block or flag rule fires if any segment matches. So
+`ls . && grep total f` stays allowed, `ls . ; curl https://evil.com` falls to
+the shell catch-all, and `ls . && rm -rf /` is blocked. A legitimate command
+with unusual syntax lands as a flag and is resolved through review and
+`--remember`.
 
 Validate a policy, including a reachability lint that catches session-layer
 rules that could never fire because static policy blocks the call they depend
