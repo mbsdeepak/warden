@@ -15,7 +15,11 @@ POLICY = str(Path(__file__).parent.parent / "policy.yaml")
 def _check(tmp_path: Path, lines: list[str]) -> tuple[int, list[dict[str, Any]]]:
     events = tmp_path / "events.jsonl"
     events.write_text("\n".join(lines) + "\n")
-    result = runner.invoke(app, ["check", str(events), "--policy", POLICY])
+    # Always pass --store: without it, check writes to .warden/state.db in the
+    # cwd, so a test run would leave flags in the operator's real review queue.
+    result = runner.invoke(
+        app, ["check", str(events), "--policy", POLICY, "--store", str(tmp_path / "s.db")]
+    )
     decisions = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
     return result.exit_code, decisions
 
@@ -133,10 +137,14 @@ def test_non_utf8_bytes_on_stdin_block_without_crash(tmp_path: Path) -> None:
 def test_bad_policy_exits_three(tmp_path: Path) -> None:
     bad = tmp_path / "bad.yaml"
     bad.write_text("version: 1\ndefault_action: permit\n")
-    result = runner.invoke(app, ["check", "-", "--policy", str(bad)])
+    store = ["--store", str(tmp_path / "s.db")]
+    result = runner.invoke(app, ["check", "-", "--policy", str(bad), *store])
     assert result.exit_code == 3
 
 
-def test_missing_input_file_exits_three() -> None:
-    result = runner.invoke(app, ["check", "/nonexistent/events.jsonl", "--policy", POLICY])
+def test_missing_input_file_exits_three(tmp_path: Path) -> None:
+    # The store is constructed before the input file is opened, so even this
+    # exit-3 path would create .warden/state.db in the cwd without --store.
+    store = ["--store", str(tmp_path / "s.db")]
+    result = runner.invoke(app, ["check", "/nonexistent/events.jsonl", "--policy", POLICY, *store])
     assert result.exit_code == 3
