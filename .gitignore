@@ -8,7 +8,6 @@ dist/
 .ruff_cache/
 *.db
 overrides.yaml
-email-draft.txt
-SESSION_CONTEXT.md
 .warden/
-INTERVIEW_QA.md
+.docs/
+.vscode/
