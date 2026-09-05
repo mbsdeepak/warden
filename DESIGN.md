@@ -1,7 +1,8 @@
 # warden: Agentic Tool-Call Firewall (Design Doc)
 
-Status: v3, decisions D1-D11 locked (see Section 12). This doc gets distilled
-into the one-page submission write-up.
+Status: v3, decisions D1-D12 locked (see Section 12). This is the full design
+record. The one-page submission write-up is `WRITEUP.md`; setup and usage are
+in `README.md`.
 
 ---
 
@@ -71,9 +72,9 @@ Input is a stream of JSONL events, one proposed tool call per line:
 Output, one decision per input line:
 
 ```json
-{"id": "c-042", "decision": "block", "rule": "taint.exfil-post",
+{"id": "x-3", "session_id": "s-exfil", "decision": "block", "rule": "taint.exfil-post",
  "matched_rules": ["static.http-known-apis", "taint.exfil-post"],
- "reason": "session s-7 read PII path ./data/pii/customers.csv at call c-040; outbound http.post escalates while session carries label 'pii'"}
+ "reason": "outbound POST after reading PII in this session (session tainted 'pii' by call x-1 reading data/pii/customers.csv)"}
 ```
 
 `matched_rules` lists every rule that fired, in evaluation order, so a reader
@@ -89,7 +90,7 @@ because of the session downgrade.
 
 ```
                         +--------------------------------------+
-  JSONL (stdin/file) -->|  adapters: CLI  |  HTTP (stretch)    |
+  JSONL (stdin/file) -->|  adapters: CLI  |  HTTP (not built)  |
                         +--------------------------------------+
                                         |
                                         v
@@ -434,10 +435,15 @@ block, never to allow.**
 
 ```
 warden check  --policy policy.yaml <events.jsonl | ->   # JSONL in, JSONL out
-warden serve  --policy policy.yaml --port 8081          # same engine over HTTP (stretch)
+warden validate --policy policy.yaml                    # strict schema check + reachability lint
 warden review list | show | approve | deny | sessions | release   # Section 7
 warden replay scenarios/<name>.jsonl --policy ...       # bundled demo scenarios
 ```
+
+Not built: an HTTP adapter (`warden serve`) over the same engine. The engine
+is a pure library, so the adapter is a thin wrapper, but shipping it would
+expose the single-writer limitation (Section 11, item 7) without addressing
+it. See `WRITEUP.md`, limitation 3.
 
 `check` reads stdin with `-` and exits with a distinct code so CI can tell
 "rejected" from "needs a human": `0` every call allowed, `1` at least one call
@@ -510,8 +516,8 @@ the session layer.
    event from the runtime, or a TTL on idle sessions with the expiry recorded
    as an audit event so a released-by-timeout quarantine is never silent.
 7. Single-writer assumption: session-state updates are read-modify-write with
-   no locking. Two concurrent processes, or parallel requests in `serve` mode
-   touching the same session, can race and lose a label or a quarantine.
+   no locking. Two concurrent processes, or parallel requests in a future HTTP
+   adapter, touching the same session can race and lose a label or a quarantine.
    Acceptable for a single-operator CLI; a production deployment needs
    transactional state updates or a single-writer decision gateway.
 
