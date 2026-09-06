@@ -174,3 +174,41 @@ def test_sessions_and_release_lifecycle(tmp_path: Path) -> None:  # D7, D8
     assert code == 3 and "not quarantined" in err
     code, _, err = env.review("release", "s-ghost")
     assert code == 3 and "unknown session" in err
+
+
+def test_review_walkthrough_script_runs_clean(tmp_path: Path) -> None:
+    # The walkthrough is the demo of the review requirement; execute it so it
+    # cannot rot. It must exit 0, show every stage, and leave .warden/ alone.
+    import os
+    import subprocess
+    import sys
+
+    script = ROOT / "scripts" / "review-walkthrough.sh"
+    marker = ROOT / ".warden" / "state.db"
+    existed_before = marker.exists()
+    mtime_before = marker.stat().st_mtime if existed_before else None
+    env = {**os.environ, "WARDEN": f"{sys.executable} -m warden.cli", "TMPDIR": str(tmp_path)}
+    result = subprocess.run(
+        ["bash", str(script)], cwd=ROOT, env=env, capture_output=True, text=True, timeout=120
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    out = result.stdout + result.stderr  # the --remember refusal is on stderr
+    for expected in [
+        '"decision":"flag","rule":"static.shell-anything-else"',  # 1: queued
+        "flag 1 approved (exception minted)",  # 3
+        '"rule":"override.ov-1"',  # 4: override wins
+        "flag 2 denied",  # 6
+        '"rule_id": "probing"',  # 7: quarantined session listed
+        '"flag_source":"quarantine"',  # 8: downgraded, recorded
+        "refusing --remember: session s-probe is quarantined",  # 9
+        "session s-probe released",  # 10
+    ]:
+        assert expected in out, expected
+    # The final check after release must allow: last z-1 decision in stdout.
+    z1_lines = [x for x in result.stdout.splitlines() if x.startswith('{"id":"z-1"')]
+    assert len(z1_lines) == 2  # once flagged under quarantine, once after release
+    assert '"decision":"flag"' in z1_lines[0] and '"decision":"allow"' in z1_lines[1]
+    # Nothing leaked into the operator's real store.
+    assert marker.exists() == existed_before
+    if existed_before:
+        assert marker.stat().st_mtime == mtime_before

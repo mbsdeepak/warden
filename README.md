@@ -183,7 +183,16 @@ session is the review unit, and `review sessions` surfaces it. And `approve
 minted exception would be silently outranked by the quarantine until
 `release`.
 
-End to end:
+The whole loop in one command, against a temporary store so nothing touches
+`.warden/`: a flag is queued, shown, approved with `--remember`, the identical
+call then allows while a close variant re-flags, a session is quarantined by
+probing, `--remember` is refused inside it, and `release` restores allows.
+
+```bash
+bash scripts/review-walkthrough.sh      # uses the venv's warden if it is not on your PATH
+```
+
+The same steps by hand:
 
 ```bash
 rm -f /tmp/demo.db
@@ -212,7 +221,8 @@ src/warden/
   overrides.py   exact-match exceptions minted by review
   lint.py        policy reachability lint
   cli.py         check, replay, validate, review
-scenarios/       six bundled JSONL scenarios
+scenarios/       seven bundled JSONL scenarios
+scripts/         review-walkthrough.sh: the flag -> review -> resolve loop end to end
 tests/           unit, scenario, adversarial, persistence, and determinism tests
 policy.yaml      example policy
 DESIGN.md        full design doc and decision log

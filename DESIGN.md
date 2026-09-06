@@ -469,6 +469,13 @@ calls it should not; that leak would also break the determinism test.
 `--store <path>` opts into a persistent store. Bundled scenarios use
 non-colliding `session_id`s for the same reason.
 
+The review loop is therefore not a scenario: it is an interaction across runs
+against a persistent store, which `replay` deliberately does not have.
+`scripts/review-walkthrough.sh` demonstrates it end to end (queue, show,
+approve with `--remember`, exact-match re-flag, deny, quarantine, refused
+`--remember`, release) against a temporary store, and a test executes the
+script so the demo cannot rot.
+
 Bundled scenarios: clean-workflow (all allowed, proves we do not break
 legitimate work), pii-processing (read PII, then run a local script: lands as
 `flag`, not `block`, demonstrating D9), exfil-chain, write-then-execute,
