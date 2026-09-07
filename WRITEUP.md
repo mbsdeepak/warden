@@ -69,7 +69,10 @@ review found that bug four times.
    and declassification rules (an approved redaction step clears the label).
 2. **Argument matching is bypassable by indirection**: base64 in shell
    arguments, URL redirects, or laundering a secret through an allowed path.
-   Production needs canonicalization and enforcement at the execution boundary.
+   Percent-encoded paths such as `%2e%2e` are matched literally, since a
+   filesystem does not decode them; a runtime that does would need to decode
+   before proposing. Production needs canonicalization and enforcement at the
+   execution boundary.
 3. **warden decides; it does not enforce.** The CLI is one adapter over a pure
    engine; in production the same engine sits inside the tool-execution
    gateway, and a runtime that ignores decisions gets no protection.

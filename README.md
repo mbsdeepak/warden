@@ -24,7 +24,7 @@ pip install -e ".[dev]"
 warden --help
 ```
 
-Run the test suite (118 tests, a few seconds; one test runs the review walkthrough script):
+Run the test suite (119 tests, a few seconds; one test runs the review walkthrough script):
 
 ```bash
 pytest -q
@@ -206,6 +206,20 @@ echo '{"id":"r2","session_id":"s-demo","tool":"shell.exec","args":{"command":"cu
 
 The first `check` flags the unknown shell command (exit 2). After approval with
 `--remember`, the identical call is allowed (exit 0) via `override.ov-1`.
+
+## Performance
+
+Measured on a laptop with a 10,000-event stream spread over 500 sessions, a
+mix of allow, block, and flag, timing the whole process including interpreter
+startup:
+
+| Mode | Throughput | Per decision |
+|---|---|---|
+| `check`, SQLite store | about 3,900 decisions/sec | about 0.26 ms |
+| `replay`, in-memory store | about 8,500 decisions/sec | about 0.12 ms |
+
+The engine itself costs tens of microseconds per call; the store round trip
+dominates. There is no network or model call in the decision path.
 
 ## Layout
 

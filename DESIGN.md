@@ -530,8 +530,11 @@ the session layer.
    clears the label).
 2. Argument matching can be bypassed by indirection: base64 in shell args,
    URL redirects, writing a secret to an allowed path then reading it from
-   there. A production version needs argument canonicalization and
-   enforcement at the execution boundary, not just the proposal boundary.
+   there. Percent-encoded paths (`%2e%2e`) are matched literally: a
+   filesystem does not decode them, so no traversal occurs, but a runtime
+   whose file tool decodes paths would need to decode before proposing. A
+   production version needs argument canonicalization and enforcement at the
+   execution boundary, not just the proposal boundary.
 3. warden decides but does not enforce; a runtime that ignores decisions gets
    no protection. In production this sits inside the tool-execution gateway.
 4. No cross-session correlation: an attacker splitting the chain across two

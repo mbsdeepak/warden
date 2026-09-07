@@ -23,6 +23,17 @@ def test_traversal_escapes_prefix_and_fails_workspace_glob() -> None:
     assert not match_path("./workspace/../../etc/passwd", ["./workspace/**"])
 
 
+def test_percent_encoded_traversal_is_literal() -> None:
+    # A filesystem does not percent-decode, so `%2e%2e` is a literal directory
+    # name inside the workspace, not a traversal. Pinned so the claim in the
+    # write-up (limitation 2) stays true; a runtime that decodes paths must
+    # decode before proposing.
+    assert canonicalize_path("./workspace/%2e%2e/%2e%2e/etc/passwd") == (
+        "workspace/%2e%2e/%2e%2e/etc/passwd"
+    )
+    assert match_path("./workspace/%2e%2e/%2e%2e/etc/passwd", ["./workspace/**"])
+
+
 def test_traversal_inside_prefix_still_matches() -> None:
     assert match_path("./workspace/a/../b.txt", ["./workspace/**"])
 
