@@ -247,5 +247,6 @@ Lint and type-check:
 
 ```bash
 ruff check src tests
+ruff format --check src tests
 mypy src
 ```
