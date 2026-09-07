@@ -168,8 +168,13 @@ def test_secrets_inside_workspace_are_blocked() -> None:
 
 def test_shell_cannot_read_what_fs_forbids() -> None:
     # `grep *` on the safe list would otherwise read anything on disk.
-    for cmd in ["grep -r password ~/.ssh/", "grep -r password /etc/shadow", "ls ~/.ssh",
-                "cat ./workspace/.env", "ls . && cat /etc/passwd"]:
+    for cmd in [
+        "grep -r password ~/.ssh/",
+        "grep -r password /etc/shadow",
+        "ls ~/.ssh",
+        "cat ./workspace/.env",
+        "ls . && cat /etc/passwd",
+    ]:
         d = ENGINE.decide(ev("shell.exec", command=cmd))
         assert (d.decision, d.rule) == ("block", "static.shell-touches-secrets"), cmd
     # Legitimate workspace reads through the shell are untouched.

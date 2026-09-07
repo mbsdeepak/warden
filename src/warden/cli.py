@@ -176,9 +176,7 @@ def replay(
     backing: StateStore = SqliteStore(store) if store is not None else MemoryStore()
     audit_fh = _open_audit(audit)
     try:
-        code = _run(
-            pol, backing, str(path), audit_fh, 1024, _load_overrides_or_exit(overrides)
-        )
+        code = _run(pol, backing, str(path), audit_fh, 1024, _load_overrides_or_exit(overrides))
     finally:
         if audit_fh is not None:
             audit_fh.close()
@@ -189,9 +187,7 @@ def replay(
 # review: the flag -> human -> resolve loop (DESIGN.md section 7)
 
 _STORE_OPT = typer.Option(DEFAULT_STORE, "--store", help="session state store (SQLite)")
-_OVERRIDES_OPT = typer.Option(
-    DEFAULT_OVERRIDES, "--overrides", help="minted exceptions file"
-)
+_OVERRIDES_OPT = typer.Option(DEFAULT_OVERRIDES, "--overrides", help="minted exceptions file")
 
 
 def _get_pending_flag(store: SqliteStore, flag_id: int) -> FlagRecord:
@@ -279,9 +275,7 @@ def review_approve(
             minted_at=flag.created_at or "unknown",
         )
         append_override(overrides, override)
-        st.audit_event(
-            "override_minted", {"flag_id": flag.id, "override_id": override.id}
-        )
+        st.audit_event("override_minted", {"flag_id": flag.id, "override_id": override.id})
     st.resolve_flag(flag_id, "approved")
     st.audit_event("flag_approved", {"flag_id": flag_id, "remember": remember})
     typer.echo(f"flag {flag_id} approved" + (" (exception minted)" if remember else ""))
@@ -303,9 +297,7 @@ def review_sessions(store: Path = _STORE_OPT) -> None:
 
     for state in SqliteStore(store).quarantined_sessions():
         assert state.quarantine is not None
-        typer.echo(
-            json.dumps({"session_id": state.session_id, **state.quarantine.model_dump()})
-        )
+        typer.echo(json.dumps({"session_id": state.session_id, **state.quarantine.model_dump()}))
 
 
 @review_app.command("release")

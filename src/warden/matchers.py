@@ -66,9 +66,7 @@ def _glob_to_regex(pattern: str) -> re.Pattern[str]:
 def match_path(path: str, patterns: list[str], home: str | None = None) -> bool:
     """True if the lexically canonicalized path matches any canonicalized glob."""
     canonical = canonicalize_path(path, home)
-    return any(
-        _glob_to_regex(canonicalize_path(pat, home)).match(canonical) for pat in patterns
-    )
+    return any(_glob_to_regex(canonicalize_path(pat, home)).match(canonical) for pat in patterns)
 
 
 # ---------------------------------------------------------------------------
@@ -131,8 +129,25 @@ def match_domain(url: str, patterns: list[str]) -> bool:
 
 # Longest first: shlex returns runs of punctuation as one token (`;)`), and
 # the run is decomposed greedily into known operators.
-_OPERATORS = ("<<<", ";;", "&&", "||", "|&", ">>", "<<", "&>", ">&", "<&", ";", "&", "|",
-              "<", ">", "(", ")")
+_OPERATORS = (
+    "<<<",
+    ";;",
+    "&&",
+    "||",
+    "|&",
+    ">>",
+    "<<",
+    "&>",
+    ">&",
+    "<&",
+    ";",
+    "&",
+    "|",
+    "<",
+    ">",
+    "(",
+    ")",
+)
 _CONTROL = frozenset({";", ";;", "&", "&&", "|", "||", "|&"})
 _PUNCT = frozenset("();<>|&")
 

@@ -42,9 +42,7 @@ def _match_path_arg(value: str, patterns: list[str], home: str | None, restricti
     return match_path(value, patterns, home)
 
 
-def _match_domain_arg(
-    value: str, patterns: list[str], home: str | None, restrictive: bool
-) -> bool:
+def _match_domain_arg(value: str, patterns: list[str], home: str | None, restrictive: bool) -> bool:
     return match_domain(value, patterns)
 
 
@@ -119,9 +117,7 @@ def evaluate_static(event: ToolCallEvent, policy: Policy) -> Verdict:
     return Verdict(
         action=policy.default_action,
         rule="static.default",
-        reason=(
-            f"no rule matched tool '{event.tool}'; default action is {policy.default_action}"
-        ),
+        reason=(f"no rule matched tool '{event.tool}'; default action is {policy.default_action}"),
         layer="static",
         explicit=False,
     )
@@ -186,9 +182,7 @@ class Engine:
         if winner.action == "flag":
             # `quarantine` marks flags that exist solely because of the
             # session downgrade; any rule-flag keeps the call enqueueable (D10).
-            has_rule_flag = any(
-                v.action == "flag" and v.source == "rule" for v in verdicts
-            )
+            has_rule_flag = any(v.action == "flag" and v.source == "rule" for v in verdicts)
             flag_source = "rule" if has_rule_flag else "quarantine"
         return Decision(
             id=event.id,

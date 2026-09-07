@@ -30,8 +30,16 @@ class Env:
         events.write_text("\n".join(lines) + "\n")
         result = runner.invoke(
             app,
-            ["check", str(events), "--policy", POLICY, "--store", self.store,
-             "--overrides", self.overrides],
+            [
+                "check",
+                str(events),
+                "--policy",
+                POLICY,
+                "--store",
+                self.store,
+                "--overrides",
+                self.overrides,
+            ],
         )
         decisions = [json.loads(x) for x in result.stdout.splitlines() if x.strip()]
         return result.exit_code, decisions
@@ -90,8 +98,16 @@ def test_remember_flow_end_to_end(tmp_path: Path) -> None:  # D6
 
     result = runner.invoke(
         app,
-        ["review", "approve", str(flag_id), "--remember", "--store", env.store,
-         "--overrides", env.overrides],
+        [
+            "review",
+            "approve",
+            str(flag_id),
+            "--remember",
+            "--store",
+            env.store,
+            "--overrides",
+            env.overrides,
+        ],
     )
     assert result.exit_code == 0 and "exception minted" in result.stdout
 
@@ -102,9 +118,7 @@ def test_remember_flow_end_to_end(tmp_path: Path) -> None:  # D6
     assert decisions[0]["rule"].startswith("override.ov-")
 
     # ...but a close variant re-flags: the human approved one call, not a pattern.
-    code, decisions = env.check(
-        [_event("c-10", "s-1", "shell.exec", command="git push --force")]
-    )
+    code, decisions = env.check([_event("c-10", "s-1", "shell.exec", command="git push --force")])
     assert code == 2
     assert decisions[0]["decision"] == "flag"
 
@@ -122,8 +136,16 @@ def test_remember_refused_while_session_quarantined(tmp_path: Path) -> None:  # 
     flag_id = env.pending()[0]["id"]
     result = runner.invoke(
         app,
-        ["review", "approve", str(flag_id), "--remember", "--store", env.store,
-         "--overrides", env.overrides],
+        [
+            "review",
+            "approve",
+            str(flag_id),
+            "--remember",
+            "--store",
+            env.store,
+            "--overrides",
+            env.overrides,
+        ],
     )
     assert result.exit_code == 3
     assert "quarantined" in result.stderr and "release" in result.stderr
@@ -134,8 +156,16 @@ def test_remember_refused_while_session_quarantined(tmp_path: Path) -> None:  # 
     assert code == 0
     result = runner.invoke(
         app,
-        ["review", "approve", str(flag_id), "--remember", "--store", env.store,
-         "--overrides", env.overrides],
+        [
+            "review",
+            "approve",
+            str(flag_id),
+            "--remember",
+            "--store",
+            env.store,
+            "--overrides",
+            env.overrides,
+        ],
     )
     assert result.exit_code == 0
 

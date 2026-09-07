@@ -73,9 +73,7 @@ def test_malformed_line_mid_stream_blocks_and_continues(tmp_path: Path) -> None:
 def test_schema_invalid_event_is_attributable(tmp_path: Path) -> None:
     # session_id present but `tool` missing: blocked, and the session is named
     # (this is what lets probing count schema-invalid events, DESIGN.md 6b).
-    code, decisions = _check(
-        tmp_path, [json.dumps({"id": "c-1", "session_id": "s-9", "args": {}})]
-    )
+    code, decisions = _check(tmp_path, [json.dumps({"id": "c-1", "session_id": "s-9", "args": {}})])
     assert code == 1
     assert decisions[0]["decision"] == "block"
     assert decisions[0]["session_id"] == "s-9"

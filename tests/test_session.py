@@ -157,11 +157,12 @@ def test_grep_of_written_file_is_not_execution() -> None:
 
 def test_capture_expires_outside_window() -> None:
     window = next(s.when.within_calls for s in POLICY.sequences if s.id == "write-then-execute")
-    filler = [
-        ev("fs.read", f"f-{i}", path="./workspace/notes.txt") for i in range(window)
+    filler = [ev("fs.read", f"f-{i}", path="./workspace/notes.txt") for i in range(window)]
+    events = [
+        ev("fs.write", "c-1", path="./workspace/helper.py"),
+        *filler,
+        ev("shell.exec", "c-2", command="python ./workspace/helper.py"),
     ]
-    events = [ev("fs.write", "c-1", path="./workspace/helper.py"), *filler,
-              ev("shell.exec", "c-2", command="python ./workspace/helper.py")]
     decisions = run_events(POLICY, events)
     assert "seq.write-then-execute" not in decisions[-1].matched_rules
 
@@ -198,9 +199,7 @@ def test_quarantine_is_sticky_beyond_the_window() -> None:
 
 
 def test_rule_flag_in_quarantined_session_keeps_rule_source() -> None:  # D10 dual-source
-    decisions = run_events(
-        POLICY, [*_probe_events(), ev("shell.exec", "b-4", command="git push")]
-    )
+    decisions = run_events(POLICY, [*_probe_events(), ev("shell.exec", "b-4", command="git push")])
     last = decisions[3]
     assert last.decision == "flag"
     assert last.flag_source == "rule"  # its own merits, not just the downgrade
@@ -209,9 +208,7 @@ def test_rule_flag_in_quarantined_session_keeps_rule_source() -> None:  # D10 du
 
 
 def test_block_still_blocks_under_quarantine() -> None:
-    decisions = run_events(
-        POLICY, [*_probe_events(), ev("fs.read", "b-4", path="~/.ssh/id_rsa")]
-    )
+    decisions = run_events(POLICY, [*_probe_events(), ev("fs.read", "b-4", path="~/.ssh/id_rsa")])
     assert decisions[3].decision == "block"
     assert decisions[3].flag_source is None
 
