@@ -8,8 +8,8 @@ short sequence of calls that preceded it in the same session.
 
 warden is a deterministic reference monitor: no LLM in the decision path. The
 same event stream, policy, and session state always produce the same
-decisions. See `WRITEUP.md` for design choices and known limitations, and
-`DESIGN.md` for the full design and decision log.
+decisions. See `WRITEUP.md` (also rendered as `WRITEUP.pdf`) for design choices
+and known limitations, and `DESIGN.md` for the full design and decision log.
 
 ## Setup
 
@@ -241,6 +241,7 @@ tests/           unit, scenario, adversarial, persistence, and determinism tests
 policy.yaml      example policy
 DESIGN.md        full design doc and decision log
 WRITEUP.md       one-page design choices and known limitations
+WRITEUP.pdf      the same, rendered
 ```
 
 Lint and type-check:

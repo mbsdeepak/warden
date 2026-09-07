@@ -9,6 +9,26 @@ testable, and a probabilistic component in the hot path forfeits all three. I
 took the same stance building deterministic policy gating for infrastructure
 pull requests: the gate itself must be boring and auditable.
 
+## How a call is decided
+
+```mermaid
+flowchart TB
+    A[Agent runtime<br/>proposes a tool call] -->|JSONL event| P[Parse and validate<br/>malformed input becomes block]
+    P --> S[Static layer<br/>ordered YAML rules, first match wins]
+    P --> Q[Session layer<br/>taint labels, sequence windows, quarantine]
+    S --> C[Combine<br/>most restrictive wins, reason attached]
+    Q --> C
+    C -->|allow, block, or flag| A
+    C -->|flag, queued| R[warden review<br/>approve, deny, remember, release]
+    Q <--> ST[(Session state<br/>SQLite)]
+    R -->|exact-match exceptions| S
+    R -->|release| ST
+```
+
+One event in, one decision out. The engine is a pure library; the CLI loads a
+session's state, decides, and writes it back. Every decision carries the rule
+that decided it and every rule that matched.
+
 ## Design choices
 
 **Two layers, combined asymmetrically.** Static rules are first-match-wins,

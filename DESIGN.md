@@ -1,8 +1,8 @@
 # warden: Agentic Tool-Call Firewall (Design Doc)
 
 Status: v3, decisions D1-D14 locked (see Section 12). This is the full design
-record. The one-page submission write-up is `WRITEUP.md`; setup and usage are
-in `README.md`.
+record. The one-page submission write-up is `WRITEUP.md` (rendered as `WRITEUP.pdf`);
+setup and usage are in `README.md`.
 
 ---
 
