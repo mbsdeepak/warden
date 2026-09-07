@@ -24,7 +24,7 @@ pip install -e ".[dev]"
 warden --help
 ```
 
-Run the test suite (119 tests, a few seconds; one test runs the review walkthrough script):
+Run the test suite (121 tests, a few seconds; one test runs the review walkthrough script):
 
 ```bash
 pytest -q
