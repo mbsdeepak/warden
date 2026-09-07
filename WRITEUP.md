@@ -24,8 +24,10 @@ source read labels the session with provenance; configured sinks escalate while
 the label is present, naming the tainting call. This forced a split between two
 classes of sensitive data: never-readable paths (SSH keys, `.env`) are
 statically blocked, while readable-but-not-exfiltrable paths (PII the agent
-legitimately processes) are allowed and taint the session. Conflating them
-makes taint dead code, since a blocked read never taints. Windowed rules cover
+legitimately processes) are allowed and taint the session. Conflating them makes
+taint dead code, since a blocked read never taints. The never-readable rule sits
+first in the list and is mirrored for shell arguments, because first match wins
+and the shell can otherwise read what the file tool cannot. Windowed rules cover
 the rest: write-then-execute compares canonicalized path tokens in the shell
 command against recently written paths, and probing counts blocks in a window.
 

@@ -3,6 +3,13 @@ version: 1
 default_action: block        # anything no rule allows is blocked
 
 rules:                       # static, per-call; first match wins [D1]
+  - id: fs-read-secrets           # first, so no allow glob below can shadow it:
+    tool: fs.read                 # ./workspace/.env is inside the workspace glob
+    match:                        # and must still be unreadable (D14). Bare forms
+      path: ["~/.ssh/**", "**/.env", ".env", "**/credentials*", "credentials*"]
+    action: block                 # listed too: `**/` requires a slash.
+    reason: "secret material is never readable"
+
   - id: fs-read-workspace
     tool: fs.read
     match: {path: ["./workspace/**", "./data/**"]}
@@ -18,12 +25,6 @@ rules:                       # static, per-call; first match wins [D1]
     match: {path: ["./workspace/**"]}   # (blocked writes wrote nothing, D11)
     action: allow
 
-  - id: fs-read-secrets
-    tool: fs.read
-    match: {path: ["~/.ssh/**", "**/.env", "**/credentials*"]}
-    action: block
-    reason: "secret material is never readable"
-
   - id: http-known-apis
     tool: [http.get, http.post]     # a rule takes one tool or a list
     match: {domain: ["api.github.com", "*.example.com"]}
@@ -34,6 +35,13 @@ rules:                       # static, per-call; first match wins [D1]
     match: {command: ["rm -rf *", "rm -r *", "mkfs*", "dd *"]}
     action: block
     reason: "destructive command is a direct violation, not a review item"
+
+  - id: shell-touches-secrets     # the shell can read what fs.read cannot, so
+    tool: shell.exec              # path tokens in shell arguments get the same
+    match:                        # never-readable treatment (D14); ordered before
+      command: ["* ~/.ssh/** *", "* **/.env *", "* **/credentials* *", "* /etc/** *"]
+    action: block                 # the safe list so `grep *` cannot shadow it
+    reason: "shell command references secret or system paths"
 
   - id: shell-safe-list
     tool: shell.exec

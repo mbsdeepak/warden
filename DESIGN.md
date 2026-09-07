@@ -1,6 +1,6 @@
 # warden: Agentic Tool-Call Firewall (Design Doc)
 
-Status: v3, decisions D1-D13 locked (see Section 12). This is the full design
+Status: v3, decisions D1-D14 locked (see Section 12). This is the full design
 record. The one-page submission write-up is `WRITEUP.md`; setup and usage are
 in `README.md`.
 
@@ -203,6 +203,13 @@ resolution is deliberately not attempted: warden judges proposed calls, and
 in replay mode the paths need not exist on the judging machine (see
 limitation 5). Domain matching is on label boundaries: `*.example.com`
 matches `api.example.com`, never `evilexample.com`.
+
+Two ordering consequences of first-match-wins, both found by adversarial
+probing after the design was frozen [D14]: the never-readable secrets rule
+must sit above the workspace allow rules, or `./workspace/.env` is readable
+because it is inside the workspace glob; and the shell safe list must sit
+below a rule that blocks shell commands whose path tokens name secret or
+system paths, or `grep *` reads everything `fs.read` forbids.
 
 Shell commands are matched per *segment* [D13]. The command is split at
 control operators (`;` `&&` `||` `|` `&`, and newlines); an allow rule matches
@@ -652,3 +659,22 @@ the session layer.
   entry. False positives from the allow-list (`grep 'a|b' f`) land as flag and
   are resolved through review and `--remember`, which is the workflow the
   problem statement asked for.
+- **D14 (locked)** Never-readable paths are enforced at the top of the rule
+  list and across tools. Why: found during the pre-submission adversarial
+  pass. `fs.read ./workspace/.env` was allowed because `fs-read-workspace`
+  (`./workspace/**`) was ordered above `fs-read-secrets`, and first match
+  wins; the same lesson had already been applied to `shell-destructive` and
+  not to fs. Worse, `shell.exec grep -r password ~/.ssh/` was allowed by the
+  `grep *` safe-list entry, so the never-readable list meant nothing while
+  the shell could read the same files. Fix in policy, not code: the secrets
+  rule moves to the top with bare `.env` and `credentials*` patterns added
+  (`**/` requires a slash), and a `shell-touches-secrets` block rule sits
+  above the safe list, matching path tokens in any segment of the command.
+  The seven scenarios are unchanged; three compound-command tests moved from
+  flag to block, which is stricter. Roadmap, not shipped: the session layer
+  already extracts canonicalized path tokens from shell commands for
+  write-then-execute (`_referenced_paths`), so the principled generalization
+  is to run those tokens through the fs path rules automatically and stop
+  duplicating the never-readable list in a shell rule. Not done on the day
+  of submission because it is an engine change and the policy fix closes the
+  hole today.

@@ -18,7 +18,9 @@ def _write(tmp_path: Path, text: str) -> Path:
 def test_repo_example_policy_loads() -> None:
     policy = load_policy(REPO_POLICY)
     assert policy.default_action == "block"
-    assert [r.id for r in policy.rules][0] == "fs-read-workspace"
+    # Never-readable secrets come first so no allow glob can shadow them (D14).
+    assert [r.id for r in policy.rules][0] == "fs-read-secrets"
+    assert len(policy.rules) == 9
     assert policy.taint.sources[0].label == "pii"
     assert policy.sequences[0].escalate == "quarantine"
 
